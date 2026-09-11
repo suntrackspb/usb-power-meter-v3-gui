@@ -1,3 +1,4 @@
+import sys
 from os import path
 
 import webview
@@ -6,7 +7,7 @@ from powermeter.api import Api
 
 HERE = path.dirname(path.abspath(__file__))
 INDEX_FILE = path.join(HERE, "web", "index.html")
-ICON_FILE = path.join(HERE, "assets", "icon.png")
+ICON_FILE = path.join(HERE, "assets", "icon.ico" if sys.platform == "win32" else "icon.png")
 STORAGE_PATH = path.join(path.expanduser("~"), ".rf-power-meter-console")
 
 
