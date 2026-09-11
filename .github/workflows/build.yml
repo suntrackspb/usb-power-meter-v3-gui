@@ -1,0 +1,91 @@
+name: Build and draft release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macos
+          - os: windows-latest
+            platform: windows
+          - os: ubuntu-latest
+            platform: linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Linux GUI dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 libgtk-3-dev
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Build with PyInstaller (macOS)
+        if: matrix.platform == 'macos'
+        run: pyinstaller --noconfirm --clean --name RFPowerMeterConsole --windowed --icon assets/icon.icns --add-data "web:web" --add-data "assets:assets" main.py
+
+      - name: Build with PyInstaller (Linux)
+        if: matrix.platform == 'linux'
+        run: pyinstaller --noconfirm --clean --name RFPowerMeterConsole --onefile --add-data "web:web" --add-data "assets:assets" main.py
+
+      - name: Build with PyInstaller (Windows)
+        if: matrix.platform == 'windows'
+        run: pyinstaller --noconfirm --clean --name RFPowerMeterConsole --onefile --windowed --icon assets\icon.ico --add-data "web;web" --add-data "assets;assets" main.py
+
+      - name: Package macOS artifact
+        if: matrix.platform == 'macos'
+        run: |
+          cd dist
+          ditto -c -k --sequesterRsrc --keepParent RFPowerMeterConsole.app RFPowerMeterConsole-macos.zip
+
+      - name: Package Linux artifact
+        if: matrix.platform == 'linux'
+        run: |
+          cd dist
+          tar -czf RFPowerMeterConsole-linux.tar.gz RFPowerMeterConsole
+
+      - name: Package Windows artifact
+        if: matrix.platform == 'windows'
+        run: |
+          cd dist
+          Compress-Archive -Path RFPowerMeterConsole.exe -DestinationPath RFPowerMeterConsole-windows.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.platform }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: artifacts/*

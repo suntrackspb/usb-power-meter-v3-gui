@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RF Power Meter Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="titlebar">
+  <div class="brand">
+    <span class="mark">dB</span>
+    <div>
+      <h1>RF Power Meter Console</h1>
+      <div class="sub" data-i18n="brand.subtitle">USB RF Power Meter &middot; 100 kHz&ndash;10 GHz</div>
+    </div>
+  </div>
+  <div class="titlebar-controls">
+    <div class="port-select">
+      <span class="dot" id="connection-dot"></span>
+      <select id="port-select" aria-label="Serial port"></select>
+    </div>
+    <button class="icon-btn" id="btn-refresh-ports" title="Refresh ports" aria-label="Refresh ports">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3.03-6.71"/><path d="M21 3v6h-6"/></svg>
+    </button>
+    <button class="btn danger" id="btn-connect" data-i18n="titlebar.connect">Connect</button>
+    <button class="btn" id="btn-open-csv" data-i18n="titlebar.open">Open</button>
+    <div class="seg" role="group" aria-label="Language" id="lang-switch">
+      <button data-lang="ru" class="active">RU</button>
+      <button data-lang="en">EN</button>
+    </div>
+    <button class="icon-btn" title="Toggle theme" id="btn-theme" aria-label="Toggle theme">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg>
+    </button>
+  </div>
+</div>
+
+<div class="app" id="live-view">
+  <div class="left-col" id="accordion">
+
+    <section class="acc-section expanded" data-section="readouts">
+      <button class="acc-head" aria-expanded="true">
+        <span class="acc-title">
+          <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+          <h2 data-i18n="readouts.title">Current readout</h2>
+        </span>
+        <span class="acc-meta mono" id="rate-meta">M</span>
+      </button>
+      <div class="acc-body">
+        <div class="acc-inner">
+          <div class="readouts">
+            <div class="readout current">
+              <div class="rlabel" data-i18n="readouts.current">Current power</div>
+              <div class="rvalue" id="reading-current-dbm">&ndash;.- <small>dBm</small></div>
+              <div class="runit" id="reading-current-power">&ndash;.- &micro;W</div>
+            </div>
+            <div class="readout max">
+              <div class="rlabel" data-i18n="readouts.max">Max</div>
+              <div class="rvalue" id="reading-max-dbm" style="font-size:20px;">&ndash;.- <small style="font-size:12px;">dBm</small></div>
+              <div class="runit" id="reading-max-power">&ndash;.- &micro;W</div>
+            </div>
+            <div class="readout">
+              <div class="rlabel" data-i18n="readouts.min">Min</div>
+              <div class="rvalue" id="reading-min-dbm" style="font-size:20px;">&ndash;.- <small style="font-size:12px;">dBm</small></div>
+              <div class="runit" id="reading-min-power">&ndash;.- &micro;W</div>
+            </div>
+          </div>
+          <div class="transport-row">
+            <button class="btn" id="btn-pause" data-i18n="readouts.pause">Pause</button>
+            <button class="btn" id="btn-reset-minmax" data-i18n="readouts.resetMinMax">Reset min/max</button>
+            <button class="btn" id="btn-capture" data-i18n="readouts.capture">Capture</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="acc-section" data-section="slots">
+      <button class="acc-head" aria-expanded="false">
+        <span class="acc-title">
+          <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+          <h2 data-i18n="slots.title">Configuration slots</h2>
+        </span>
+        <span class="acc-meta mono" id="slots-meta">&ndash;</span>
+      </button>
+      <div class="acc-body">
+        <div class="acc-inner">
+          <div class="slots-grid" id="slots-grid"></div>
+          <div class="slots-foot">
+            <button class="btn" id="btn-read-slots" data-i18n="slots.readFromDevice">Read from device</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="acc-section" data-section="log">
+      <button class="acc-head" aria-expanded="false">
+        <span class="acc-title">
+          <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+          <h2 data-i18n="log.title">Command log</h2>
+        </span>
+        <span class="acc-meta mono" id="log-meta">0</span>
+      </button>
+      <div class="acc-body">
+        <div class="acc-inner">
+          <div class="log" id="log"></div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <section class="panel chart-panel">
+    <div class="chart-toolbar">
+      <div class="group">
+        <span class="eyebrow" data-i18n="chart.rate">Rate</span>
+        <div class="seg rate-seg" id="rate-switch">
+          <button data-rate="0">L</button>
+          <button data-rate="1" class="active">M</button>
+          <button data-rate="2">H</button>
+        </div>
+      </div>
+      <div class="group legend">
+        <span class="item"><span class="swatch" style="background:var(--accent-strong);"></span><span data-i18n="chart.legendPower">Power, dBm</span></span>
+        <span class="item"><span class="swatch" style="background:var(--amber);"></span><span data-i18n="chart.legendMax">Max</span></span>
+      </div>
+      <div class="group">
+        <button class="btn" id="btn-pause-chart" style="padding:6px 12px;" data-i18n="chart.pause">Pause chart</button>
+      </div>
+    </div>
+
+    <div class="chart-area">
+      <div class="chart-svg-wrap">
+        <svg id="chart-svg" viewBox="0 0 900 420" preserveAspectRatio="none" role="img" aria-label="Power over time"></svg>
+      </div>
+      <div class="chart-status">
+        <span id="chart-window-label" data-i18n="chart.window">Window: last 60s</span>
+        <span class="live" id="live-indicator"><span class="pulse"></span><span data-i18n="chart.live">LIVE</span></span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="panel analysis-view" id="analysis-view" hidden>
+  <div class="chart-toolbar">
+    <div class="group">
+      <span class="eyebrow" data-i18n="analysis.file">File</span>
+      <span class="mono" id="analysis-filename">&ndash;</span>
+    </div>
+    <div class="group legend">
+      <span class="item"><span class="swatch" style="background:var(--accent-strong);"></span><span data-i18n="chart.legendPower">Power, dBm</span></span>
+      <span class="item" id="analysis-points"></span>
+    </div>
+    <div class="group">
+      <button class="btn" id="btn-close-analysis" data-i18n="analysis.close">Close</button>
+    </div>
+  </div>
+  <div class="analysis-chart">
+    <svg id="analysis-axis" aria-hidden="true"></svg>
+    <div class="analysis-scroll">
+      <svg id="analysis-svg" role="img" aria-label="Recorded power over time"></svg>
+    </div>
+  </div>
+</section>
+
+<footer class="statusbar">
+  <span id="status-connection" data-i18n="footer.disconnected">Disconnected</span>
+  <span>RF Power Meter Console v0.1.0</span>
+</footer>
+
+<script src="js/i18n.js"></script>
+<script src="js/chart.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

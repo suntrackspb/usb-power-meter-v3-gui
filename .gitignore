@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# PyInstaller / Nuitka build artifacts
+*.spec
+*.build/
+*.onefile-build/
+*.dist/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Local env / secrets
+.env
