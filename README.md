@@ -25,6 +25,16 @@ Cross-platform desktop app for the USB RF Power Meter V3.0 100K To 10GHZ -55 To 
 - Dark / light themes, English / Russian UI
 - Serial port selector with manual refresh
 
+## Running on Linux
+
+The release ships an `.AppImage` with GTK + WebKit bundled inside it, so no
+system packages need to be installed:
+
+```bash
+chmod +x RFPowerMeterConsole-linux.AppImage
+./RFPowerMeterConsole-linux.AppImage
+```
+
 ## Development
 
 ```bash
@@ -44,8 +54,11 @@ python3 -m venv .venv
   --add-data "web:web" --add-data "assets:assets" main.py   # macOS
 ```
 
-On Linux, drop `--icon` (PyInstaller's `--icon` is a no-op there; the app
-picks up `assets/icon.png` at runtime instead). On Windows, use `--icon
+On Linux, drop `--windowed`/`--icon`/`--onefile` (PyInstaller's `--icon` is a
+no-op there) — the release build instead wraps the resulting `dist/`
+folder into a self-contained `.AppImage` with `linuxdeploy` (see
+`.github/workflows/build.yml`), which is how GTK/WebKit end up bundled
+instead of relying on system packages. On Windows, use `--icon
 assets\icon.ico` and `--add-data "web;web" --add-data "assets;assets"`
 (semicolon separator), and add `--onefile` if you want a single `.exe`.
 

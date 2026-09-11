@@ -30,7 +30,7 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 libgtk-3-dev
+          sudo apt-get install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 libgtk-3-dev libfuse2
 
       - name: Install Python dependencies
         run: |
@@ -43,7 +43,7 @@ jobs:
 
       - name: Build with PyInstaller (Linux)
         if: matrix.platform == 'linux'
-        run: pyinstaller --noconfirm --clean --name RFPowerMeterConsole --onefile --add-data "web:web" --add-data "assets:assets" main.py
+        run: pyinstaller --noconfirm --clean --name RFPowerMeterConsole --add-data "web:web" --add-data "assets:assets" main.py
 
       - name: Build with PyInstaller (Windows)
         if: matrix.platform == 'windows'
@@ -55,11 +55,29 @@ jobs:
           cd dist
           ditto -c -k --sequesterRsrc --keepParent RFPowerMeterConsole.app RFPowerMeterConsole-macos.zip
 
-      - name: Package Linux artifact
+      - name: Package Linux artifact (AppImage)
         if: matrix.platform == 'linux'
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          NO_STRIP: "1"
         run: |
-          cd dist
-          tar -czf RFPowerMeterConsole-linux.tar.gz RFPowerMeterConsole
+          wget -q -O linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget -q -O linuxdeploy-plugin-gtk.sh https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/download/continuous/linuxdeploy-plugin-gtk.sh
+          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-gtk.sh
+
+          mkdir -p AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+          cp -r dist/RFPowerMeterConsole AppDir/usr/bin
+          cp assets/rfpowermeterconsole.desktop AppDir/usr/share/applications/
+          cp assets/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/rfpowermeterconsole.png
+
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir \
+            --executable AppDir/usr/bin/RFPowerMeterConsole \
+            --desktop-file assets/rfpowermeterconsole.desktop \
+            --icon-file assets/icon.png \
+            --plugin gtk \
+            --output appimage
+
+          mv RF_Power_Meter_Console*.AppImage dist/RFPowerMeterConsole-linux.AppImage
 
       - name: Package Windows artifact
         if: matrix.platform == 'windows'
@@ -72,7 +90,7 @@ jobs:
           name: build-${{ matrix.platform }}
           path: |
             dist/*.zip
-            dist/*.tar.gz
+            dist/*.AppImage
           if-no-files-found: error
 
   release:
