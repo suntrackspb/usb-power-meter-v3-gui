@@ -26,11 +26,20 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Determine version
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
+          fi
+
       - name: Install Linux GUI dependencies
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 libgtk-3-dev libfuse2
+          sudo apt-get install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 libgtk-3-dev
 
       - name: Install Python dependencies
         run: |
@@ -53,13 +62,14 @@ jobs:
         if: matrix.platform == 'macos'
         run: |
           cd dist
-          ditto -c -k --sequesterRsrc --keepParent RFPowerMeterConsole.app RFPowerMeterConsole-macos.zip
+          ditto -c -k --sequesterRsrc --keepParent RFPowerMeterConsole.app "RFPowerMeterConsole-${VERSION}-macos.zip"
 
       - name: Package Linux artifact (AppImage)
         if: matrix.platform == 'linux'
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
           NO_STRIP: "1"
+          DEPLOY_GTK_VERSION: "3"
         run: |
           wget -q -O linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           wget -q -O linuxdeploy-plugin-gtk.sh https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh
@@ -77,13 +87,53 @@ jobs:
             --plugin gtk \
             --output appimage
 
-          mv RF_Power_Meter_Console*.AppImage dist/RFPowerMeterConsole-linux.AppImage
+          mv RF_Power_Meter_Console*.AppImage "dist/RFPowerMeterConsole-${VERSION}-linux.AppImage"
+
+      - name: Package Linux artifact (deb)
+        if: matrix.platform == 'linux'
+        run: |
+          PKG_ROOT=deb-root
+          mkdir -p "$PKG_ROOT/DEBIAN" "$PKG_ROOT/opt/rfpowermeterconsole" \
+            "$PKG_ROOT/usr/bin" "$PKG_ROOT/usr/share/applications" \
+            "$PKG_ROOT/usr/share/icons/hicolor/256x256/apps"
+
+          cp -r dist/RFPowerMeterConsole/* "$PKG_ROOT/opt/rfpowermeterconsole/"
+          cp assets/icon.png "$PKG_ROOT/usr/share/icons/hicolor/256x256/apps/rfpowermeterconsole.png"
+
+          printf '%s\n' \
+            '#!/bin/sh' \
+            'exec /opt/rfpowermeterconsole/RFPowerMeterConsole "$@"' \
+            > "$PKG_ROOT/usr/bin/rfpowermeterconsole"
+          chmod 755 "$PKG_ROOT/usr/bin/rfpowermeterconsole"
+
+          printf '%s\n' \
+            '[Desktop Entry]' \
+            'Type=Application' \
+            'Name=RF Power Meter Console' \
+            'Exec=rfpowermeterconsole' \
+            'Icon=rfpowermeterconsole' \
+            'Categories=Utility;Electronics;' \
+            'Terminal=false' \
+            > "$PKG_ROOT/usr/share/applications/rfpowermeterconsole.desktop"
+
+          printf '%s\n' \
+            'Package: rfpowermeterconsole' \
+            "Version: $VERSION" \
+            'Section: utils' \
+            'Priority: optional' \
+            'Architecture: amd64' \
+            'Depends: python3-gi, python3-gi-cairo, gir1.2-gtk-3.0, gir1.2-webkit2-4.1' \
+            'Maintainer: RF Power Meter Console' \
+            'Description: Desktop app for the USB RF Power Meter v3' \
+            > "$PKG_ROOT/DEBIAN/control"
+
+          dpkg-deb --root-owner-group --build "$PKG_ROOT" "dist/RFPowerMeterConsole-${VERSION}-linux.deb"
 
       - name: Package Windows artifact
         if: matrix.platform == 'windows'
         run: |
           cd dist
-          Compress-Archive -Path RFPowerMeterConsole.exe -DestinationPath RFPowerMeterConsole-windows.zip
+          Compress-Archive -Path RFPowerMeterConsole.exe -DestinationPath "RFPowerMeterConsole-${env:VERSION}-windows.zip"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -91,6 +141,7 @@ jobs:
           path: |
             dist/*.zip
             dist/*.AppImage
+            dist/*.deb
           if-no-files-found: error
 
   release:

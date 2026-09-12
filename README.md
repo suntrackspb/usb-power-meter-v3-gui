@@ -27,13 +27,19 @@ Cross-platform desktop app for the USB RF Power Meter V3.0 100K To 10GHZ -55 To 
 
 ## Running on Linux
 
-The release ships an `.AppImage` with GTK + WebKit bundled inside it, so no
-system packages need to be installed:
+The release ships two builds — pick whichever fits:
 
-```bash
-chmod +x RFPowerMeterConsole-linux.AppImage
-./RFPowerMeterConsole-linux.AppImage
-```
+- **`.deb`** (Debian/Ubuntu and derivatives) — installs cleanly via apt,
+  which resolves the GTK/WebKit dependencies automatically:
+  ```bash
+  sudo apt install ./RFPowerMeterConsole-linux.deb
+  ```
+- **`.AppImage`** (any distro) — GTK + WebKit are bundled inside it, no
+  installation or system packages needed:
+  ```bash
+  chmod +x RFPowerMeterConsole-linux.AppImage
+  ./RFPowerMeterConsole-linux.AppImage
+  ```
 
 ## Development
 

@@ -29,13 +29,19 @@
 
 ## Запуск на Linux
 
-В релизе — `.AppImage` со встроенными GTK и WebKit, ставить системные
-пакеты не нужно:
+В релизе — две сборки, берите любую:
 
-```bash
-chmod +x RFPowerMeterConsole-linux.AppImage
-./RFPowerMeterConsole-linux.AppImage
-```
+- **`.deb`** (Debian/Ubuntu и производные) — ставится через apt, который
+  сам подтянет зависимости GTK/WebKit:
+  ```bash
+  sudo apt install ./RFPowerMeterConsole-linux.deb
+  ```
+- **`.AppImage`** (любой дистрибутив) — GTK и WebKit уже внутри, ставить
+  ничего не нужно:
+  ```bash
+  chmod +x RFPowerMeterConsole-linux.AppImage
+  ./RFPowerMeterConsole-linux.AppImage
+  ```
 
 ## Разработка
 
