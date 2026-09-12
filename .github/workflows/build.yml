@@ -6,25 +6,43 @@ on:
       - "v*.*.*"
   workflow_dispatch: {}
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  APP_NAME: RFPowerMeterConsole
+  PYTHON_VERSION: "3.12"
+
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
-            platform: macos
+          - os: macos-14
+            platform: macos-arm64
+          - os: macos-13
+            platform: macos-x86_64
           - os: windows-latest
             platform: windows
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             platform: linux
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
+      # Linux собирается поверх системного python3 (см. job-шаги ниже),
+      # чтобы вендоренные колёса совпадали с интерпретатором из Depends.
       - uses: actions/setup-python@v5
+        if: matrix.platform != 'linux'
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
 
       - name: Determine version
         shell: bash
@@ -35,37 +53,88 @@ jobs:
             echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
           fi
 
-      - name: Install Python dependencies
-        if: matrix.platform != 'linux'
+      # ---------------------------------------------------------------- macOS
+      - name: Install dependencies (macOS)
+        if: startsWith(matrix.platform, 'macos')
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Build with PyInstaller (macOS)
-        if: matrix.platform == 'macos'
-        run: pyinstaller --noconfirm --clean --name RFPowerMeterConsole --windowed --icon assets/icon.icns --add-data "web:web" --add-data "assets:assets" main.py
+      - name: Build (macOS)
+        if: startsWith(matrix.platform, 'macos')
+        run: pyinstaller --noconfirm --clean build.spec
 
-      - name: Build with PyInstaller (Windows)
-        if: matrix.platform == 'windows'
-        run: pyinstaller --noconfirm --clean --name RFPowerMeterConsole --onefile --windowed --icon assets\icon.ico --add-data "web;web" --add-data "assets;assets" main.py
+      - name: Ad-hoc sign (macOS)
+        if: startsWith(matrix.platform, 'macos')
+        # Без подписи Gatekeeper объявляет скачанный .app «повреждённым».
+        run: |
+          codesign --force --deep --sign - "dist/${APP_NAME}.app"
+          codesign --verify --deep --strict --verbose=2 "dist/${APP_NAME}.app"
 
-      - name: Package macOS artifact
-        if: matrix.platform == 'macos'
+      - name: Smoke test (macOS)
+        if: startsWith(matrix.platform, 'macos')
+        run: "dist/${APP_NAME}.app/Contents/MacOS/${APP_NAME} --selftest"
+
+      - name: Package (macOS)
+        if: startsWith(matrix.platform, 'macos')
         run: |
           cd dist
-          ditto -c -k --sequesterRsrc --keepParent RFPowerMeterConsole.app "RFPowerMeterConsole-${VERSION}-macos.zip"
+          ditto -c -k --sequesterRsrc --keepParent "${APP_NAME}.app" \
+            "${APP_NAME}-${VERSION}-${{ matrix.platform }}.zip"
 
-      - name: Package Linux artifact (deb)
+      # -------------------------------------------------------------- Windows
+      - name: Install dependencies (Windows)
+        if: matrix.platform == 'windows'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Build (Windows)
+        if: matrix.platform == 'windows'
+        run: pyinstaller --noconfirm --clean build.spec
+
+      - name: Smoke test (Windows)
+        if: matrix.platform == 'windows'
+        # windowed-сборка не имеет консоли: ждём процесс и читаем код возврата,
+        # а отчёт забираем из selftest.log.
+        run: |
+          $exe = "dist\$env:APP_NAME\$env:APP_NAME.exe"
+          $proc = Start-Process -FilePath $exe -ArgumentList '--selftest' -Wait -PassThru -NoNewWindow
+          if (Test-Path selftest.log) { Get-Content selftest.log }
+          if ($proc.ExitCode -ne 0) { throw "selftest failed with exit code $($proc.ExitCode)" }
+
+      - name: Package (Windows)
+        if: matrix.platform == 'windows'
+        run: |
+          Compress-Archive -Path "dist\$env:APP_NAME\*" `
+            -DestinationPath "dist\$env:APP_NAME-$env:VERSION-windows.zip"
+
+      # ---------------------------------------------------------------- Linux
+      - name: Install build tooling (Linux)
         if: matrix.platform == 'linux'
         run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0 \
+            gir1.2-webkit2-4.1 xvfb
+
+      - name: Package (deb)
+        if: matrix.platform == 'linux'
+        run: |
+          set -euo pipefail
           mkdir -p dist
           PKG_ROOT=deb-root
           APP_DIR="$PKG_ROOT/opt/rfpowermeterconsole"
+          ARCH="$(dpkg --print-architecture)"
+          # Колёса вендорим ТЕМ ЖЕ python3, который указан в Depends.
+          PY_MINOR="$(/usr/bin/python3 -c 'import sys; print(sys.version_info[1])')"
+
           mkdir -p "$PKG_ROOT/DEBIAN" "$APP_DIR" \
             "$PKG_ROOT/usr/bin" "$PKG_ROOT/usr/share/applications" \
             "$PKG_ROOT/usr/share/icons/hicolor/256x256/apps"
 
-          pip install --no-compile --target "$APP_DIR/vendor" -r requirements.txt
+          /usr/bin/python3 -m pip install --no-compile --break-system-packages \
+            --target "$APP_DIR/vendor" -r requirements.txt
           cp main.py "$APP_DIR/"
           cp -r powermeter web assets "$APP_DIR/"
           cp assets/icon-256.png "$PKG_ROOT/usr/share/icons/hicolor/256x256/apps/rfpowermeterconsole.png"
@@ -92,20 +161,24 @@ jobs:
             "Version: $VERSION" \
             'Section: utils' \
             'Priority: optional' \
-            'Architecture: amd64' \
-            'Depends: python3 (>= 3.8), python3-gi, python3-gi-cairo, gir1.2-gtk-3.0, gir1.2-webkit2-4.1 | gir1.2-webkit2-4.0' \
+            "Architecture: $ARCH" \
+            "Depends: python3 (>= 3.${PY_MINOR}), python3-gi, python3-gi-cairo, gir1.2-gtk-3.0, gir1.2-webkit2-4.1 | gir1.2-webkit2-4.0" \
             'Maintainer: RF Power Meter Console' \
             'Description: Desktop app for the USB RF Power Meter v3' \
             > "$PKG_ROOT/DEBIAN/control"
 
-          dpkg-deb --root-owner-group --build "$PKG_ROOT" "dist/RFPowerMeterConsole-${VERSION}-linux.deb"
+          dpkg-deb --root-owner-group --build "$PKG_ROOT" \
+            "dist/${APP_NAME}-${VERSION}-linux-${ARCH}.deb"
+          dpkg-deb --info "dist/${APP_NAME}-${VERSION}-linux-${ARCH}.deb"
 
-      - name: Package Windows artifact
-        if: matrix.platform == 'windows'
+      - name: Smoke test (Linux, installs the real .deb)
+        if: matrix.platform == 'linux'
         run: |
-          cd dist
-          Compress-Archive -Path RFPowerMeterConsole.exe -DestinationPath "RFPowerMeterConsole-${env:VERSION}-windows.zip"
+          set -euo pipefail
+          sudo apt-get install -y ./dist/*.deb
+          xvfb-run -a rfpowermeterconsole --selftest
 
+      # --------------------------------------------------------------- upload
       - uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.platform }}
@@ -129,4 +202,5 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           draft: true
+          fail_on_unmatched_files: true
           files: artifacts/*

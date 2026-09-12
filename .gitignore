@@ -9,6 +9,8 @@ dist/
 
 # PyInstaller / Nuitka build artifacts
 *.spec
+!build.spec
+selftest.log
 *.build/
 *.onefile-build/
 *.dist/
