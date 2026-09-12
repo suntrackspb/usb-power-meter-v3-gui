@@ -27,19 +27,16 @@ Cross-platform desktop app for the USB RF Power Meter V3.0 100K To 10GHZ -55 To 
 
 ## Running on Linux
 
-The release ships two builds — pick whichever fits:
+The release ships a `.deb` for Debian/Ubuntu and derivatives. Install it
+with apt so it pulls in the GTK/WebKit dependencies automatically:
 
-- **`.deb`** (Debian/Ubuntu and derivatives) — installs cleanly via apt,
-  which resolves the GTK/WebKit dependencies automatically:
-  ```bash
-  sudo apt install ./RFPowerMeterConsole-linux.deb
-  ```
-- **`.AppImage`** (any distro) — GTK + WebKit are bundled inside it, no
-  installation or system packages needed:
-  ```bash
-  chmod +x RFPowerMeterConsole-linux.AppImage
-  ./RFPowerMeterConsole-linux.AppImage
-  ```
+```bash
+sudo apt install ./RFPowerMeterConsole-linux.deb
+```
+
+It's not a frozen binary — pywebview's Linux backend needs the system's
+own GTK/WebKit Python bindings (`gi`), which only exist in the system's
+Python, so the package runs the app with the system `python3` instead.
 
 ## Development
 
@@ -52,7 +49,7 @@ python3 -m venv .venv
 `requirements-dev.txt` additionally installs PyInstaller for local packaging;
 `requirements.txt` alone is enough to just run the app.
 
-## Building a standalone binary
+## Building a standalone binary (macOS / Windows)
 
 ```bash
 .venv/bin/pyinstaller --noconfirm --clean --name RFPowerMeterConsole \
@@ -60,20 +57,21 @@ python3 -m venv .venv
   --add-data "web:web" --add-data "assets:assets" main.py   # macOS
 ```
 
-On Linux, drop `--windowed`/`--icon`/`--onefile` (PyInstaller's `--icon` is a
-no-op there) — the release build instead wraps the resulting `dist/`
-folder into a self-contained `.AppImage` with `linuxdeploy` (see
-`.github/workflows/build.yml`), which is how GTK/WebKit end up bundled
-instead of relying on system packages. On Windows, use `--icon
-assets\icon.ico` and `--add-data "web;web" --add-data "assets;assets"`
-(semicolon separator), and add `--onefile` if you want a single `.exe`.
+On Windows, use `--icon assets\icon.ico` and `--add-data "web;web"
+--add-data "assets;assets"` (semicolon separator), and add `--onefile` if
+you want a single `.exe`.
 
 The output is written to `dist/`.
+
+Linux isn't built with PyInstaller — pywebview's GTK/WebKit bindings live
+in the system Python, not something a frozen binary can carry with it, so
+the release instead packages the source straight into a `.deb` that runs
+under the system `python3` (see `.github/workflows/build.yml`).
 
 ## Releasing
 
 Pushing a tag matching `v*.*.*` triggers `.github/workflows/build.yml`,
-which builds the app for macOS, Windows and Linux with PyInstaller and
+which builds the app for macOS, Windows and Linux and
 opens a **draft** GitHub release with the packaged artifacts attached.
 Nothing is published automatically — review the draft and publish it
 manually from the repository's Releases page.

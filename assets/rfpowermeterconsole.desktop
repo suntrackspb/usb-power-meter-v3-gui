@@ -1,7 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=RF Power Meter Console
-Exec=RFPowerMeterConsole
-Icon=rfpowermeterconsole
-Categories=Utility;Electronics;
-Terminal=false

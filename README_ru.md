@@ -29,19 +29,16 @@
 
 ## Запуск на Linux
 
-В релизе — две сборки, берите любую:
+В релизе — `.deb` для Debian/Ubuntu и производных. Ставьте через apt, он
+сам подтянет зависимости GTK/WebKit:
 
-- **`.deb`** (Debian/Ubuntu и производные) — ставится через apt, который
-  сам подтянет зависимости GTK/WebKit:
-  ```bash
-  sudo apt install ./RFPowerMeterConsole-linux.deb
-  ```
-- **`.AppImage`** (любой дистрибутив) — GTK и WebKit уже внутри, ставить
-  ничего не нужно:
-  ```bash
-  chmod +x RFPowerMeterConsole-linux.AppImage
-  ./RFPowerMeterConsole-linux.AppImage
-  ```
+```bash
+sudo apt install ./RFPowerMeterConsole-linux.deb
+```
+
+Это не замороженный бинарник — GTK/WebKit-биндинги (`gi`), которые нужны
+pywebview на Linux, есть только в системном Python, поэтому пакет
+запускает приложение через системный `python3`.
 
 ## Разработка
 
@@ -54,7 +51,7 @@ python3 -m venv .venv
 `requirements-dev.txt` дополнительно ставит PyInstaller для локальной сборки;
 для запуска приложения достаточно `requirements.txt`.
 
-## Сборка standalone-бинарника
+## Сборка standalone-бинарника (macOS / Windows)
 
 ```bash
 .venv/bin/pyinstaller --noconfirm --clean --name RFPowerMeterConsole \
@@ -62,21 +59,21 @@ python3 -m venv .venv
   --add-data "web:web" --add-data "assets:assets" main.py   # macOS
 ```
 
-На Linux уберите `--windowed`/`--icon`/`--onefile` (флаг `--icon` там всё
-равно ничего не делает) — в релизной сборке папка `dist/` вместо этого
-упаковывается в самодостаточный `.AppImage` через `linuxdeploy` (см.
-`.github/workflows/build.yml`) — так GTK/WebKit оказываются внутри, без
-зависимости от системных пакетов. На Windows используйте `--icon
-assets\icon.ico` и `--add-data "web;web" --add-data "assets;assets"`
-(разделитель — точка с запятой), а также добавьте `--onefile`, если нужен
-единый `.exe`.
+На Windows используйте `--icon assets\icon.ico` и `--add-data "web;web"
+--add-data "assets;assets"` (разделитель — точка с запятой), а также
+добавьте `--onefile`, если нужен единый `.exe`.
 
 Результат сборки попадает в `dist/`.
+
+Linux не собирается через PyInstaller — GTK/WebKit-биндинги pywebview
+живут в системном Python, замороженный бинарник их с собой не унесёт,
+поэтому в релизе исходники пакуются прямо в `.deb`, который запускается
+через системный `python3` (см. `.github/workflows/build.yml`).
 
 ## Релизы
 
 Пуш тега вида `v*.*.*` запускает `.github/workflows/build.yml`, который
-собирает приложение под macOS, Windows и Linux через PyInstaller и открывает
+собирает приложение под macOS, Windows и Linux и открывает
 **черновик** GitHub-релиза с приложенными артефактами сборки. Ничего не
 публикуется автоматически — черновик нужно проверить и опубликовать вручную
 на странице Releases репозитория.
