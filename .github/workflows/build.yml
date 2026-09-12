@@ -141,11 +141,23 @@ jobs:
           cp -r powermeter web assets "$APP_DIR/"
           cp assets/icon-256.png "$PKG_ROOT/usr/share/icons/hicolor/256x256/apps/rfpowermeterconsole.png"
 
-          printf '%s\n' \
-            '#!/bin/sh' \
-            'export PYTHONPATH="/opt/rfpowermeterconsole/vendor${PYTHONPATH:+:$PYTHONPATH}"' \
-            'exec python3 -B /opt/rfpowermeterconsole/main.py "$@"' \
-            > "$PKG_ROOT/usr/bin/rfpowermeterconsole"
+          cat > "$PKG_ROOT/usr/bin/rfpowermeterconsole" <<'LAUNCHER'
+          #!/bin/sh
+          # Без GPU render node (VirtualBox/VMware без 3D-ускорения, headless)
+          # WebKitGTK падает или показывает пустое окно. В таком окружении
+          # принудительно отключаем DMABUF-рендерер и композитинг.
+          # Явно заданное пользователем значение не трогаем.
+          if [ -z "${WEBKIT_DISABLE_DMABUF_RENDERER:-}" ] &&
+             { [ ! -e /dev/dri/renderD128 ] || systemd-detect-virt -q 2>/dev/null; }; then
+              WEBKIT_DISABLE_DMABUF_RENDERER=1
+              WEBKIT_DISABLE_COMPOSITING_MODE=1
+              export WEBKIT_DISABLE_DMABUF_RENDERER WEBKIT_DISABLE_COMPOSITING_MODE
+          fi
+
+          export PYTHONPATH="/opt/rfpowermeterconsole/vendor${PYTHONPATH:+:$PYTHONPATH}"
+          exec python3 -B /opt/rfpowermeterconsole/main.py "$@"
+          LAUNCHER
+          sh -n "$PKG_ROOT/usr/bin/rfpowermeterconsole"
           chmod 755 "$PKG_ROOT/usr/bin/rfpowermeterconsole"
 
           printf '%s\n' \
