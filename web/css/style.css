@@ -147,6 +147,15 @@ button { font-family: inherit; font-size: 13px; cursor: pointer; }
   padding: 3px 2px;
   max-width: 260px;
 }
+/* Windows WebView2 can use a native popup background instead of the
+   transparent select background. Set both option colors for each theme. */
+.port-select select option {
+  background-color: var(--surface);
+  color: var(--text);
+}
+.port-select select option:disabled {
+  color: var(--text-dim);
+}
 
 .btn {
   padding: 6px 14px;
