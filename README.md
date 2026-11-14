@@ -25,6 +25,24 @@ Cross-platform desktop app for the USB RF Power Meter V3.0 100K To 10GHZ -55 To 
 - Dark / light themes, English / Russian UI
 - Serial port selector with manual refresh
 
+## Running on Windows
+
+Download the Windows ZIP from Releases. Before extracting it, right-click
+the ZIP → **Properties** → **Unblock** (if shown) → **Apply**. Then extract
+the entire archive and run `RFPowerMeterConsole.exe` from the extracted folder.
+Keep the `_internal` folder alongside the executable.
+
+Windows may block DLLs extracted from a downloaded ZIP, preventing startup
+with an error such as `Failed to resolve Python.Runtime.Loader.Initialize`.
+If you have already extracted the archive, open PowerShell and unblock the
+files in the application's folder (replace the example path with yours):
+
+```powershell
+Get-ChildItem "$env:USERPROFILE\Downloads\RFPowerMeterConsole-0.1.3-windows" -Recurse -File | Unblock-File
+```
+
+Then launch the application again.
+
 ## Running on Linux
 
 The release ships a `.deb` for Debian/Ubuntu and derivatives. Install it
