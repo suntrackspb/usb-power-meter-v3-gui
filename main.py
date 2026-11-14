@@ -12,6 +12,9 @@ HERE = getattr(sys, "_MEIPASS", path.dirname(path.abspath(__file__)))
 INDEX_FILE = path.join(HERE, "web", "index.html")
 ICON_FILE = path.join(HERE, "assets", "icon.ico" if sys.platform == "win32" else "icon.png")
 STORAGE_PATH = path.join(path.expanduser("~"), ".rf-power-meter-console")
+# Persistent pywebview apps otherwise share http://127.0.0.1:42001.
+# Use an app-specific origin to isolate cached pages and browser storage.
+HTTP_PORT = 42673
 
 # Автодетект бэкенда в frozen-сборке видит не то же, что на dev-машине.
 # Фиксируем явно, чтобы поведение совпадало на всех трёх платформах.
@@ -46,11 +49,17 @@ def selftest() -> int:
     else:
         problems.append(f"FAIL pywebview js assets missing: {webview_js} (нужен --collect-all webview)")
 
-    try:
-        __import__(f"webview.platforms.{GUI_BACKEND}")
-        notes.append(f"ok   gui backend importable: {GUI_BACKEND}")
-    except Exception as exc:  # noqa: BLE001 - интересует любой сбой импорта
-        problems.append(f"FAIL gui backend '{GUI_BACKEND}' not importable: {exc!r}")
+    # edgechromium alone does not initialize Python.NET. The Windows GUI
+    # starts through winforms, which imports clr and loads Python.Runtime.dll.
+    backend_modules = [GUI_BACKEND]
+    if sys.platform == "win32":
+        backend_modules.insert(0, "winforms")
+    for backend in backend_modules:
+        try:
+            __import__(f"webview.platforms.{backend}")
+            notes.append(f"ok   gui backend importable: {backend}")
+        except Exception as exc:  # noqa: BLE001 - интересует любой сбой импорта
+            problems.append(f"FAIL gui backend '{backend}' not importable: {exc!r}")
 
     try:
         from powermeter.ports import list_serial_ports
@@ -97,6 +106,7 @@ def main() -> None:
         icon=ICON_FILE,
         private_mode=False,
         storage_path=STORAGE_PATH,
+        http_port=HTTP_PORT,
     )
 
 
